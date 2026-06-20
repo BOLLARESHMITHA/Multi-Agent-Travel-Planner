@@ -37,6 +37,7 @@ CITY_TO_IATA = {
     "leh": "IXL",
     "amritsar": "ATQ",
     "indore": "IDR",
+    "pondicherry": "PNY",
     # International Hubs / Cities
     "paris": "CDG",
     "london": "LHR",
@@ -118,7 +119,7 @@ INDIAN_IATA_CODES = {
     "IXZ", "VNS", "VTZ", "ATQ", "CJB", "TRZ", "JDH", "IXE", "NAG", "IXJ", "DED", 
     "KUU", "IXL", "IDR", "BHO", "JLR", "RAJ", "BDQ", "STV", "UDR", "GAY", "IXD", 
     "VGA", "TPT", "RJA", "IXA", "DMU", "SHL", "TEZ", "JRH", "DIB", "IXS", "AJL",
-    "AGR", "IXU", "IXM", "CCJ", "RPR"
+    "AGR", "IXU", "IXM", "CCJ", "RPR", "PNY"
 }
 
 
@@ -320,6 +321,26 @@ def _is_international(source: str, destination: str, dep_code: str | None = None
     return any(kw in src_lower or kw in dst_lower for kw in intl_keywords)
 
 
+def _is_cargo_airline(airline_name: str) -> bool:
+    if not airline_name:
+        return False
+    name_lower = airline_name.lower()
+    cargo_keywords = [
+        "cargo", "fedex", "dhl", "freight", "logistics", 
+        "cargolux", "amazon air", "prime air", "atlas air", 
+        "kalitta", "polar air", "martinair", "courier"
+    ]
+    if any(kw in name_lower for kw in cargo_keywords):
+        return True
+    
+    # Check for UPS specifically to avoid partial matching on words like "groups"
+    import re
+    if re.search(r'\bups\b', name_lower):
+        return True
+        
+    return False
+
+
 def _get_mock_transport_options(source: str, destination: str) -> list[dict]:
     dep_code = _resolve_iata(source)
     arr_code = _resolve_iata(destination)
@@ -384,7 +405,7 @@ def get_all_transport_options(source: str, destination: str, travel_date: str) -
             "access_key": settings.AVIATIONSTACK_API_KEY,
             "dep_iata": dep_code,
             "arr_iata": arr_code,
-            "limit": 10
+            "limit": 20
         }
 
         try:
@@ -404,6 +425,8 @@ def get_all_transport_options(source: str, destination: str, travel_date: str) -
 
                     for idx, flight in enumerate(flights):
                         airline_name = flight.get("airline", {}).get("name") or "Unknown Airline"
+                        if _is_cargo_airline(airline_name):
+                            continue
                         dep_sched = flight.get("departure", {}).get("scheduled")
                         arr_sched = flight.get("arrival", {}).get("scheduled")
                         dep_tz_name = flight.get("departure", {}).get("timezone")
@@ -471,7 +494,9 @@ def get_all_transport_options(source: str, destination: str, travel_date: str) -
     # 3. Fallback path: Try generating realistic flights via LLM
     llm_flights = _get_llm_mock_flights(source, destination, travel_date)
     if llm_flights:
-        return sorted(llm_flights, key=lambda o: o["cost"])
+        llm_flights = [f for f in llm_flights if not _is_cargo_airline(f.get("provider"))]
+        if llm_flights:
+            return sorted(llm_flights, key=lambda o: o["cost"])
         
     # 4. Final safety net: Procedural mock flight generator
     logger.warning(f"Falling back to procedural mock data for '{source}' -> '{destination}'.")

@@ -105,3 +105,23 @@ def test_mock_transport_options_intl_vs_domestic():
     assert any("Air France" in i["provider"] for i in intl)
     assert "Stop" in intl[0]["duration"]
 
+
+def test_is_cargo_airline():
+    from services.transport_service import _is_cargo_airline
+    # Positive cases
+    assert _is_cargo_airline("FedEx") is True
+    assert _is_cargo_airline("FedEx Express") is True
+    assert _is_cargo_airline("DHL Aviation") is True
+    assert _is_cargo_airline("UPS Airlines") is True
+    assert _is_cargo_airline("UPS") is True
+    assert _is_cargo_airline("Emirates SkyCargo") is True
+    assert _is_cargo_airline("Cathay Pacific Cargo") is True
+    assert _is_cargo_airline("Cargolux Airlines") is True
+    # Negative cases
+    assert _is_cargo_airline("Air India") is False
+    assert _is_cargo_airline("Emirates") is False
+    assert _is_cargo_airline("Qatar Airways") is False
+    assert _is_cargo_airline("Groups Charter") is False  # check UPS boundary handling
+    assert _is_cargo_airline("Unknown Airline") is False
+
+

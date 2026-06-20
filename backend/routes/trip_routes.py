@@ -46,6 +46,16 @@ def get_trip(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Trip not found")
 
     plan = json.loads(trip.result_json)
+
+    # Standardize destination_highlights for backward compatibility
+    highlights_raw = plan.get("destination_highlights") or []
+    destination_highlights = []
+    from services.destination_service import _enrich_attraction
+    for hl in highlights_raw:
+        enriched = _enrich_attraction(hl, trip.destination, plan.get("theme", "Sightseeing"))
+        destination_highlights.append(enriched)
+    plan["destination_highlights"] = destination_highlights
+
     return TripPlanResponse(
         trip_id=trip.id,
         source=trip.source,

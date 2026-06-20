@@ -133,7 +133,7 @@ def test_destination_agent_known_destination(mock_get):
     result = DestinationAgent().run("Goa")
     assert result["destination"] == "Goa"
     assert len(result["top_places"]) > 0
-    assert "Baga Beach" in result["top_places"]
+    assert any(place["name"] == "Baga Beach" for place in result["top_places"])
 
 
 @patch.object(settings, "GEOAPIFY_API_KEY", "dummy_geoapify_key")
@@ -234,14 +234,15 @@ def test_weather_service_real_api_mock(mock_get):
 
 
 @patch.object(settings, "GEOAPIFY_API_KEY", "dummy_geoapify_key")
+@patch("services.destination_service.fetch_wikipedia_image", return_value=None)
 @patch("services.destination_service.requests.get", side_effect=mock_agent_request_router)
-def test_destination_service_geoapify_mock(mock_get):
+def test_destination_service_geoapify_mock(mock_get, mock_wiki):
     from services.destination_service import get_destination_info
     result = get_destination_info("Paris")
     
     assert mock_get.call_count == 3
     assert result["display_name"] == "Paris"
-    assert "Baga Beach" in result["attractions"]
+    assert any(place["name"] == "Baga Beach" for place in result["attractions"])
     assert "Basilica of Bom Jesus" in result["culture_spots"]
     assert "Bhagwan Mahavir Sanctuary" in result["wildlife_spots"]
     assert "Britto's Restaurant" in result["food_spots"]

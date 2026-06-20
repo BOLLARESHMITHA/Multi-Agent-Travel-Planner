@@ -110,7 +110,7 @@ def _get_llm_destination_info(destination: str) -> dict | None:
     return None
 
 
-def get_destination_info(destination: str) -> dict:
+def _get_destination_info_raw(destination: str) -> dict:
     """Returns structured info for a destination, querying Geoapify Geocoding and
     Places API. Falls back to realistic mock data if API key is missing or requests fail."""
     
@@ -242,4 +242,150 @@ def get_destination_info(destination: str) -> dict:
         "avg_temp_c": avg_temp,
         "theme": "Sightseeing",
     }
+
+
+def fetch_wikipedia_image(name: str, destination: str = "") -> str | None:
+    try:
+        query = f"{name} {destination}".strip()
+        search_url = "https://en.wikipedia.org/w/api.php"
+        search_params = {
+            "action": "query",
+            "list": "search",
+            "srsearch": query,
+            "format": "json",
+            "srlimit": 1
+        }
+        headers = {
+            "User-Agent": "VoyageAITravelPlanner/1.0 (contact: spoor@example.com)"
+        }
+        res = requests.get(search_url, params=search_params, headers=headers, timeout=5)
+        if res.status_code == 200:
+            data = res.json()
+            search_results = data.get("query", {}).get("search", [])
+            if search_results:
+                best_title = search_results[0]["title"]
+                
+                image_params = {
+                    "action": "query",
+                    "titles": best_title,
+                    "prop": "pageimages",
+                    "format": "json",
+                    "pithumbsize": 600
+                }
+                res_img = requests.get(search_url, params=image_params, headers=headers, timeout=5)
+                if res_img.status_code == 200:
+                    img_data = res_img.json()
+                    pages = img_data.get("query", {}).get("pages", {})
+                    for page_id, page_info in pages.items():
+                        thumbnail = page_info.get("thumbnail", {})
+                        source = thumbnail.get("source")
+                        if source:
+                            return source
+    except Exception as e:
+        logger.error(f"Error fetching Wikipedia image for {name}: {e}")
+    return None
+
+
+def get_unsplash_image_for_attraction(name: str, theme: str, destination_name: str = "") -> str:
+    # Try fetching real image from Wikipedia first
+    wiki_img = fetch_wikipedia_image(name, destination_name)
+    if wiki_img:
+        return wiki_img
+
+    name_lower = name.lower()
+    if any(k in name_lower for k in ["beach", "sea", "ocean", "coast", "sand", "palolem", "baga", "calangute", "anjuna", "colva", "morjim", "vagator", "miramar", "sinquerim"]):
+        return "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=600&h=400&q=80"
+    if any(k in name_lower for k in ["temple", "church", "cathedral", "mosque", "shrine", "basilica", "heritage", "ruins", "hampi", "bom jesus", "mangueshi"]):
+        return "https://images.unsplash.com/photo-1548013146-72479768bada?auto=format&fit=crop&w=600&h=400&q=80"
+    if any(k in name_lower for k in ["fort", "castle", "palace", "museum", "gallery", "monument", "aguada", "chapora", "reis magos"]):
+        return "https://images.unsplash.com/photo-1564507592333-c60657eea523?auto=format&fit=crop&w=600&h=400&q=80"
+    if any(k in name_lower for k in ["waterfall", "falls", "river", "lake", "forest", "nature", "wildlife", "dudhsagar", "backwaters"]):
+        return "https://images.unsplash.com/photo-1441974231531-c6227db76b6e?auto=format&fit=crop&w=600&h=400&q=80"
+    if any(k in name_lower for k in ["market", "street", "bazaar", "shop", "mall", "flea", "panaji"]):
+        return "https://images.unsplash.com/photo-1483985988355-763728e1935b?auto=format&fit=crop&w=600&h=400&q=80"
+    if any(k in name_lower for k in ["restaurant", "food", "cafe", "bistro", "dining", "pub", "bar"]):
+        return "https://images.unsplash.com/photo-1504674900247-0877df9cc836?auto=format&fit=crop&w=600&h=400&q=80"
+    if "tokyo" in name_lower or "shibuya" in name_lower or "sensoji" in name_lower or "kyoto" in name_lower:
+        return "https://images.unsplash.com/photo-1493976040374-85c8e12f0c0e?auto=format&fit=crop&w=600&h=400&q=80"
+    if "paris" in name_lower or "eiffel" in name_lower or "louvre" in name_lower:
+        return "https://images.unsplash.com/photo-1502602898657-3e91760cbb34?auto=format&fit=crop&w=600&h=400&q=80"
+    if "london" in name_lower or "bridge" in name_lower or "big ben" in name_lower:
+        return "https://images.unsplash.com/photo-1513635269975-59663e0ac1ad?auto=format&fit=crop&w=600&h=400&q=80"
+    if "new york" in name_lower or "manhattan" in name_lower or "broadway" in name_lower or "times square" in name_lower:
+        return "https://images.unsplash.com/photo-1496442226666-8d4d0e62e6e9?auto=format&fit=crop&w=600&h=400&q=80"
+    if any(k in name_lower for k in ["mountain", "hill", "peak", "climb", "trek", "valley"]):
+        return "https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?auto=format&fit=crop&w=600&h=400&q=80"
+
+    theme_lower = theme.lower()
+    if "beach" in theme_lower:
+        return "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=600&h=400&q=80"
+    if "culture" in theme_lower or "history" in theme_lower:
+        return "https://images.unsplash.com/photo-1548013146-72479768bada?auto=format&fit=crop&w=600&h=400&q=80"
+    if "nature" in theme_lower or "wildlife" in theme_lower or "hill" in theme_lower:
+        return "https://images.unsplash.com/photo-1441974231531-c6227db76b6e?auto=format&fit=crop&w=600&h=400&q=80"
+    if "adventure" in theme_lower:
+        return "https://images.unsplash.com/photo-1469854523086-cc02fe5d8800?auto=format&fit=crop&w=600&h=400&q=80"
+    return "https://images.unsplash.com/photo-1469854523086-cc02fe5d8800?auto=format&fit=crop&w=600&h=400&q=80"
+
+
+def _enrich_attraction(name: str | dict, destination_name: str, theme: str) -> dict:
+    if isinstance(name, dict):
+        name_str = name.get("name", "Local Spot")
+        rating = name.get("rating", 4.5)
+        location = name.get("location", destination_name)
+        image_url = name.get("image_url")
+        if not image_url or "photo-1469854523086-cc02fe5d8800" in image_url:
+            image_url = get_unsplash_image_for_attraction(name_str, theme, destination_name)
+        return {
+            "name": name_str,
+            "location": location,
+            "rating": rating,
+            "image_url": image_url
+        }
+
+    name_str = str(name).strip()
+    h = 0
+    for char in name_str:
+        h = 31 * h + ord(char)
+    rating = round(4.2 + (abs(h) % 9) * 0.1, 1)
+    if rating > 5.0:
+        rating = 5.0
+
+    dest_clean = destination_name.split(",")[0].strip()
+    location = dest_clean
+    name_lower = name_str.lower()
+    if "beach" in name_lower:
+        if "palolem" in name_lower:
+            location = f"South Goa, {dest_clean}"
+        elif "baga" in name_lower or "calangute" in name_lower or "anjuna" in name_lower:
+            location = f"North Goa, {dest_clean}"
+        else:
+            location = f"Coastal Area, {dest_clean}"
+    elif "waterfall" in name_lower or "falls" in name_lower:
+        location = f"Nature Reserve, {dest_clean}"
+    elif "fort" in name_lower or "castle" in name_lower:
+        location = f"Heritage Site, {dest_clean}"
+
+    image_url = get_unsplash_image_for_attraction(name_str, theme, destination_name)
+    return {
+        "name": name_str,
+        "location": location,
+        "rating": rating,
+        "image_url": image_url
+    }
+
+
+def get_destination_info(destination: str) -> dict:
+    """Returns structured info for a destination, querying Geoapify Geocoding and
+    Places API. Falls back to realistic mock data if API key is missing or requests fail."""
+    info = _get_destination_info_raw(destination)
+    theme = info.get("theme", "Sightseeing")
+    display_name = info.get("display_name", destination.title())
+    
+    # Enrich attractions list
+    info["attractions"] = [
+        _enrich_attraction(hl, display_name, theme)
+        for hl in info.get("attractions", [])[:5]
+    ]
+    return info
 
