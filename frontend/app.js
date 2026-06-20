@@ -2,7 +2,7 @@
    VoyageAI Tours Client-Side Logic (Modal Auth & Landing Page Integration)
    ========================================================================== */
 
-const API_BASE = "http://127.0.0.1:8000";
+const API_BASE = "https://multi-agent-travel-planner-pq02.onrender.com";
 
 // Global App State
 const state = {
